@@ -20,7 +20,7 @@ FILENAME_UNSIGNED="$PLUGIN_NAME-${GIT_TAG}-Unsigned.pkg"
 FILENAME="$PLUGIN_NAME-${GIT_TAG}.pkg"
 
 echo "=> Modifying $PLUGIN_NAME.so"
-mkdir lib
+mkdir -p lib
 
 function copy_local_dylib
 {
@@ -69,6 +69,7 @@ fi
 echo "=> ZIP package build"
 ziproot=package-zip/$PLUGIN_NAME
 zipfile=${PLUGIN_NAME}-${GIT_TAG}-macos.zip
+rm -rf ${ziproot:?}/
 mkdir -p $ziproot/bin
 cp ./build/$PLUGIN_NAME.so $ziproot/bin/
 cp LICENSE data/LICENSE-$PLUGIN_NAME
