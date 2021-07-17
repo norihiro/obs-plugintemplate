@@ -1,6 +1,6 @@
 variables:
   macosSignAndNotarize: false
-  isReleaseMode: ${{ or(eq(variables['isReleaseMode'], true), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}
+  isReleaseMode: ${{ or(eq(variables['isReleaseMode'], 'True'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}
   buildWin32: true
   buildWin64: true
   OBSLatestTag: 26.1.2
@@ -143,7 +143,7 @@ jobs:
 
     - task: InstallAppleCertificate@2
       displayName: 'Install release signing certificates'
-      condition: eq(variables['isReleaseMode'], true)
+      condition: variables['isReleaseMode']
       inputs:
         certSecureFile: 'Certificates.p12'
         certPwd: $(secrets.macOS.certificatesImportPassword)
