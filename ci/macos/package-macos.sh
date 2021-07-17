@@ -54,14 +54,13 @@ for dylib in ./build/$PLUGIN_NAME.so lib/*.dylib ; do
 	echo "=> Dependencies for $(basename $dylib)"
 	otool -L $dylib
 	echo
+	if [[ "$RELEASE_MODE" == "True" ]]; then
+		echo "=> Signing plugin binary: $dylib"
+		codesign --sign "$CODE_SIGNING_IDENTITY" $dylib
+	else
+		echo "=> Skipped plugin codesigning since RELEASE_MODE=$RELEASE_MODE"
+	fi
 done
-
-if [[ "$RELEASE_MODE" == "True" ]]; then
-	echo "=> Signing plugin binary: $PLUGIN_NAME.so"
-	codesign --sign "$CODE_SIGNING_IDENTITY" ./build/$PLUGIN_NAME.so
-else
-	echo "=> Skipped plugin codesigning"
-fi
 
 echo "=> ZIP package build"
 ziproot=package-zip/$PLUGIN_NAME
@@ -89,8 +88,9 @@ fi
 # packagesbuild ./installer/installer-macOS.generated.pkgproj
 
 if [[ "$RELEASE_MODE" == "True" ]]; then
-	for FILENAME in $zipfile ${PLUGIN_NAME}-${GIT_TAG}-macos.dmg; do
+	:> requests
 
+	for FILENAME in $zipfile ${PLUGIN_NAME}-${GIT_TAG}-macos.dmg; do
 		echo "=> Submitting installer $FILENAME for notarization"
 		UPLOAD_RESULT=$(xcrun altool \
 			--notarize-app \
@@ -102,24 +102,31 @@ if [[ "$RELEASE_MODE" == "True" ]]; then
 
 		REQUEST_UUID=$(echo $UPLOAD_RESULT | awk -F ' = ' '/RequestUUID/ {print $2}')
 		echo "Request UUID: $REQUEST_UUID"
+		echo "$REQUEST_UUID" >> requests
+	done
 
-		echo "=> Wait for notarization result"
+	t=10
+	for REQUEST_UUID in $(cat requests); do
+		echo "=> Wait for notarization result of $REQUEST_UUID"
 		# Pieces of code borrowed from rednoah/notarized-app
-		while sleep 30 && date; do
+		while sleep $t && date; do
 			CHECK_RESULT=$(xcrun altool \
 				--notarization-info "$REQUEST_UUID" \
 				--username "$AC_USERNAME" \
 				--password "$AC_PASSWORD" \
 				--asc-provider "$AC_PROVIDER_SHORTNAME")
-			echo $CHECK_RESULT
+			echo "$CHECK_RESULT"
 
 			if ! grep -q "Status: in progress" <<< "$CHECK_RESULT"; then
+				echo "$CHECK_RESULT" >> release/${PLUGIN_NAME}-${GIT_TAG}-macos-codesign.log
 				if expr "$FILENAME" : '.*dmg$'; then
 					echo "=> Staple ticket to installer: $FILENAME"
 					xcrun stapler staple ./release/$FILENAME
 				fi
+				t=0
 				break
 			fi
+			t=10
 		done
 	done
 else
