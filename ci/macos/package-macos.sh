@@ -106,11 +106,11 @@ if [[ "$RELEASE_MODE" == "True" ]]; then
 
 		REQUEST_UUID=$(echo $UPLOAD_RESULT | awk -F ' = ' '/RequestUUID/ {print $2}')
 		echo "Request UUID: $REQUEST_UUID"
-		echo "$REQUEST_UUID" >> requests
+		echo "$REQUEST_UUID $FILENAME" >> requests
 	done
 
 	t=10
-	for REQUEST_UUID in $(cat requests); do
+	while read -u 3 REQUEST_UUID FILENAME; do
 		echo "=> Wait for notarization result of $REQUEST_UUID"
 		# Pieces of code borrowed from rednoah/notarized-app
 		while sleep $t && date; do
@@ -119,7 +119,7 @@ if [[ "$RELEASE_MODE" == "True" ]]; then
 				--username "$AC_USERNAME" \
 				--password "$AC_PASSWORD" \
 				--asc-provider "$AC_PROVIDER_SHORTNAME")
-			echo "$CHECK_RESULT"
+			echo $CHECK_RESULT
 
 			if ! grep -q "Status: in progress" <<< "$CHECK_RESULT"; then
 				echo "$CHECK_RESULT" >> release/${PLUGIN_NAME}-${GIT_TAG}-macos-codesign.log
@@ -127,12 +127,12 @@ if [[ "$RELEASE_MODE" == "True" ]]; then
 					echo "=> Staple ticket to installer: $FILENAME"
 					xcrun stapler staple ./release/$FILENAME
 				fi
-				t=0
+				t=1
 				break
 			fi
 			t=10
 		done
-	done
+	done 3< requests
 else
 	echo "=> Skipped installer codesigning and notarization"
 fi
