@@ -1,6 +1,6 @@
 variables:
   macosSignAndNotarize: false
-  isReleaseMode: ${{ and(eq(variables['isReleaseMode'], true), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}
+  isReleaseMode: ${{ or(eq(variables['isReleaseMode'], true), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}
   buildWin32: true
   buildWin64: true
   OBSLatestTag: 26.1.2
@@ -10,6 +10,7 @@ trigger:
     include:
       - master
       - main
+      - codesign
   tags:
     include:
       - '*'
