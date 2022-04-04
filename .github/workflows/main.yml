@@ -3,11 +3,11 @@ name: 'Build on Push and Tag'
 on:
   push:
     paths-ignore: ['**.md']
-    branches: [master]
+    branches: ['master', 'main']
     tags: ['*']
   pull_request:
     paths-ignore: ['**.md']
-    branches: [master]
+    branches: ['master', 'main']
 
 env:
   PLUGIN_NAME: 'obs-plugintemplate'
