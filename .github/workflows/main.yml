@@ -6,6 +6,7 @@ on:
       - '**.md'
     branches:
       - master
+      - devel-windows-deps
     tags:
       - '*'
   pull_request:
