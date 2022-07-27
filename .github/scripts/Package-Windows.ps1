@@ -91,6 +91,13 @@ function Package {
     Add-Content -path readme.txt -value "GITHUB_REF: $env:GITHUB_REF"
     Add-Content -path readme.txt -value "GITHUB_SHA: $env:GITHUB_SHA"
 
+    Remove-Item "${ProjectRoot}/../obs-build-dependencies/*.zip"
+    Remove-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/swig" -Recurse
+    Remove-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/include/ajalibraries" -Recurse
+    Remove-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/lib/aja*"
+    Remove-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/bin/*.pdb"
+    Remove-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/lib/*.pdb"
+
     $CompressArgs = @{
         Path = "${ProjectRoot}/../obs-build-dependencies/", "readme.txt"
         CompressionLevel = 'Optimal'
