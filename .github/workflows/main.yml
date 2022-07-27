@@ -150,6 +150,17 @@ jobs:
           codesign: 'true'
           codesignIdent: ${{ env.CODESIGN_IDENT }}
 
+      - name: Package all files
+        shell: bash
+        run: |
+          ls -l
+          tar czf obs-studio-devel-macos-${{ matrix.arch }}.tar.gz obs-studio
+
+      - name: Upload development artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: obs-studio-devel-macos-*.tar.gz
+
       - name: Package Plugin
         uses: ./plugin/.github/actions/package-plugin
         with:
