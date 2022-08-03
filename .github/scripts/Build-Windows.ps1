@@ -67,7 +67,7 @@ function Build {
     if ( ! ( ( $SkipAll ) -or ( $SkipBuild ) ) ) {
         Ensure-Location $ProjectRoot
 
-        $DepsPath = "plugin-deps-${script:DepsVersion}-qt${script:QtVersion}-${script:Target}"
+        $DepsPath = "plugin-deps-${script:Target}"
         $CmakeArgs = @(
             '-G', $CmakeGenerator
             "-DCMAKE_SYSTEM_VERSION=${script:PlatformSDK}"

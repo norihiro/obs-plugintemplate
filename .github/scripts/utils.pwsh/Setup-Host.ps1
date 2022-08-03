@@ -48,13 +48,13 @@ function Setup-Host {
                 prebuilt {
                     $_Filename = "windows-deps-${_Version}-${script:Target}.zip"
                     $_Uri = "${_BaseUrl}/${_Version}/${_Filename}"
-                    $_Target = "plugin-deps-${_Version}-qt${script:QtVersion}-${script:Target}"
+                    $_Target = "plugin-deps-${script:Target}"
                     $script:DepsVersion = ${_Version}
                 }
                 "qt*" {
                     $_Filename = "windows-deps-qt${script:QtVersion}-${_Version}-${script:Target}.zip"
                     $_Uri = "${_BaseUrl}/${_Version}/${_Filename}"
-                    $_Target = "plugin-deps-${_Version}-qt${script:QtVersion}-${script:Target}"
+                    $_Target = "plugin-deps-${script:Target}"
                 }
             }
 

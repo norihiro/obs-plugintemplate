@@ -49,7 +49,7 @@ function Setup-Obs {
             $env:EnforceProcessCountAcrossBuilds = $true
         }
 
-        $DepsPath = "plugin-deps-${script:DepsVersion}-qt${script:QtVersion}-${script:Target}"
+        $DepsPath = "plugin-deps-${script:Target}"
 
         $CmakeArgs = @(
             '-G', $script:CmakeGenerator
