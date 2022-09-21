@@ -140,6 +140,8 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
       return 2
     }
 
+    echo ${project_root}/build_${target##*-}/installer-macos.generated.pkgproj
+    cat ${project_root}/build_${target##*-}/installer-macos.generated.pkgproj
     if [[ ! -f ${project_root}/build_${target##*-}/installer-macos.generated.pkgproj ]] {
       log_error 'Packages project file not found. Run the build script or the CMake build and install procedures first.'
       return 2

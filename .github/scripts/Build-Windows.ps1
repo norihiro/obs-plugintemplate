@@ -63,6 +63,8 @@ function Build {
         -replace "set\(WINDOWS_APP_ID (.*)\)", "set(WINDOWS_APP_ID ${AppId})" `
         | Out-File -Path ${ProjectRoot}/CMakeLists.txt -NoNewline
 
+    (Get-Content -Path ${ProjectRoot}/CMakeLists.txt -Raw)
+
     Setup-Obs
 
     Push-Location -Stack BuildTemp
@@ -82,6 +84,8 @@ function Build {
         Log-Debug "Attempting to configure OBS with CMake arguments: $($CmakeArgs | Out-String)"
         Log-Information "Configuring ${ProductName}..."
         Invoke-External cmake -S . -B build_${script:Target} @CmakeArgs
+
+        Get-Content -Path "build_${script:Target}/installer-Windows.generated.iss"
 
         $CmakeArgs = @(
             '--config', "${Configuration}"

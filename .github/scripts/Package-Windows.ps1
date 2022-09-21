@@ -66,6 +66,7 @@ function Package {
                 $IsccFile = ''
             }
         } else {
+            Get-Content -Path "${ProjectRoot}/build_${Target}/installer-Windows.generated.iss"
             $IsccFile = "${ProjectRoot}/build_${Target}/installer-Windows.generated.iss"
         }
 

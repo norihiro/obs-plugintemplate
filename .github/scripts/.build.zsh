@@ -211,6 +211,9 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
       ;;
   }
 
+  echo "${project_root}/CMakeLists.txt:"
+  cat "${project_root}/CMakeLists.txt"
+
   setup_obs
 
   pushd ${project_root}
