@@ -47,7 +47,7 @@ jobs:
       fail-fast: true
       matrix:
         arch: [x86_64, arm64, universal]
-    if: always()
+    if: false
     needs: [clang_check]
     outputs:
       commitHash: ${{ steps.setup.outputs.commitHash }}
@@ -188,7 +188,7 @@ jobs:
       fail-fast: true
       matrix:
         arch: [x86_64]
-    if: always()
+    if: false
     needs: [clang_check]
     outputs:
       commitHash: ${{ steps.setup.outputs.commitHash }}
@@ -265,7 +265,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        arch: [x86, x64]
+        arch: [x64]
     if: always()
     needs: [clang_check]
     outputs:
