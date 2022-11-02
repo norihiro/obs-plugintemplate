@@ -1,10 +1,10 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "27.2.3",
-            "repository": "https://github.com/obsproject/obs-studio.git",
-            "branch": "master",
-            "hash": "2ac9f83cb662692d34874ee1fd17ad7675597215"
+            "version": "27.2.4",
+            "repository": "https://github.com/norihiro/obs-studio.git",
+            "branch": "27-pkg-for-plugins",
+            "hash": "3bc7062fc0b232d0884f5a6bcc5017e52552fcd8"
         },
         "obs-deps": {
             "macos-x86_64": {
