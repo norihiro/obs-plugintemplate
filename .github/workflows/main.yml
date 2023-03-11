@@ -151,6 +151,12 @@ jobs:
           codesign: 'true'
           codesignIdent: ${{ env.CODESIGN_IDENT }}
 
+      - name: Upload CMakeLists.txt
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.setup.outputs.pluginName }}-macos-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
+          path: ${{ github.workspace }}/plugin/CMakeLists.txt
+
       - name: Package Plugin
         uses: ./plugin/.github/actions/package-plugin
         with:
@@ -236,6 +242,12 @@ jobs:
           target: ${{ matrix.arch }}
           config: RelWithDebInfo
 
+      - name: Upload CMakeLists.txt
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.setup.outputs.pluginName }}-linux-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}
+          path: ${{ github.workspace }}/plugin/CMakeLists.txt
+
       - name: Package Plugin
         uses: ./plugin/.github/actions/package-plugin
         with:
@@ -318,6 +330,12 @@ jobs:
           target: ${{ matrix.arch }}
           config: RelWithDebInfo
           visualStudio: 'Visual Studio 17 2022'
+
+      - name: Upload CMakeLists.txt
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.setup.outputs.pluginName }}-windows-${{ matrix.arch }}-${{ steps.setup.outputs.commitHash }}-installer
+          path: ${{ github.workspace }}/plugin/CMakeLists.txt
 
       - name: Package Plugin
         uses: ./plugin/.github/actions/package-plugin
