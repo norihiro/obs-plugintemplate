@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - main
+      - '*-devel-windows-deps'
       - 'release/**'
     tags:
       - '*'
