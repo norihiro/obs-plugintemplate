@@ -238,7 +238,22 @@ jobs:
         run: |
           mkdir -p obs-build-dependencies/plugin-deps-x64
           cp -a .deps/* obs-build-dependencies/plugin-deps-x64/
-          tar czf obs-plugintemplate-${{ needs.check-event.outputs.commitHash }}-windows-x64.tar.gz obs-build-dependencies
+          cd obs-build-dependencies/plugin-deps-x64/
+          rm -rf obs-studio-*/plugins
+          mv */include/* ./include/ && rmdir */include/
+          mv */*/include/* ./include/ && rmdir */*/include/
+          mv */*/*/include/* ./include/ && rmdir */*/*/include/
+          mv */bin/* bin/ && rmdir */bin
+          mkdir -p lib/cmake
+          mv obs*/cmake/* cmake/
+          mv obs-deps-qt*/{plugins,mkspecs,metatypes,modules} ./
+          mv */lib/cmake/* lib/cmake/ && rmdir */lib/cmake/
+          mv */lib/* lib/ && rmdir */lib
+          cd -
+          tar czf obs-plugintemplate-${{ needs.check-event.outputs.commitHash }}-windows-x64.tar.gz \
+            --exclude '*.zip' \
+            --exclude '*.pdb' \
+            obs-build-dependencies
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v3
