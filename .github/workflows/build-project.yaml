@@ -238,11 +238,10 @@ jobs:
         run: |
           mkdir -p obs-build-dependencies/plugin-deps-x64
           cp -a .deps/* obs-build-dependencies/plugin-deps-x64/
-          zip -r obs-plugintemplate-${{ needs.check-event.outputs.commitHash }}-windows-x64.zip obs-build-dependencies
-
+          tar czf obs-plugintemplate-${{ needs.check-event.outputs.commitHash }}-windows-x64.tar.gz obs-build-dependencies
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v3
         with:
           name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/*.zip
+          path: ${{ github.workspace }}/*.tar.gz
