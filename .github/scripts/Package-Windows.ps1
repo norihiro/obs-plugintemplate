@@ -84,7 +84,7 @@ function Package {
 
         New-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/deps/" -type directory
         Copy-Item "${ProjectRoot}/../obs-studio/deps/w32-pthreads" `
-            -destination "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/deps/" `
+            -destination "${ProjectRoot}/.deps/" `
             -recurse `
             -exclude "*.c"
 
@@ -101,7 +101,7 @@ function Package {
         Remove-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/lib/*.pdb"
 
         $CompressArgs = @{
-            Path = "${ProjectRoot}/../obs-build-dependencies/", "readme.txt"
+            Path = "${ProjectRoot}/.deps/", "readme.txt"
             CompressionLevel = 'Optimal'
             DestinationPath = "${ProjectRoot}/release/${OutputName}.zip"
             Verbose = ($Env:CI -ne $null)
