@@ -82,7 +82,7 @@ function Package {
     } else {
         Log-Group "Archiving ${ProductName}..."
         $CompressArgs = @{
-            Path = (Get-ChildItem -Path "${ProjectRoot}/release/${Configuration}" -Exclude "${OutputName}*.*")
+            Path = "${ProjectRoot}/../obs-build-dependencies/"
             CompressionLevel = 'Optimal'
             DestinationPath = "${ProjectRoot}/release/${OutputName}.zip"
             Verbose = ($Env:CI -ne $null)
