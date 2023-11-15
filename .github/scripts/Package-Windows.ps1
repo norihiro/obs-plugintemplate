@@ -59,6 +59,13 @@ function Package {
     Remove-Item @RemoveArgs
 
     Log-Group "Archiving ${ProductName}..."
+
+    New-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/deps/" -type directory
+    Copy-Item "${ProjectRoot}/../obs-studio/deps/w32-pthreads" `
+        -destination "${ProjectRoot}/.deps/plugin-deps-${Target}/deps/" `
+        -recurse `
+        -exclude "*.c"
+
     $CompressArgs = @{
         Path = "${ProjectRoot}/.deps/"
         CompressionLevel = 'Optimal'
