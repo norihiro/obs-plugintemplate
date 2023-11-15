@@ -283,15 +283,15 @@ jobs:
           target: x64
           config: ${{ needs.check-event.outputs.config }}
 
-      - name: Package Plugin 📀
-        uses: ./.github/actions/package-plugin
-        with:
-          target: x64
-          config: ${{ needs.check-event.outputs.config }}
-          package: ${{ fromJSON(needs.check-event.outputs.package) }}
+      - name: Package build environment
+        shell: bash
+        run: |
+          mkdir -p obs-build-dependencies/plugin-deps-x64
+          cp -a .deps/* obs-build-dependencies/plugin-deps-x64/
+          tar czf obs-plugintemplate-${{ needs.check-event.outputs.commitHash }}-windows-x64.tar.gz obs-build-dependencies
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64*.*
+          path: ${{ github.workspace }}/*.tar.gz
