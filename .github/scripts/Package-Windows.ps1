@@ -81,6 +81,13 @@ function Package {
         Pop-Location -Stack BuildTemp
     } else {
         Log-Group "Archiving ${ProductName}..."
+
+        New-Item "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/deps/" -type directory
+        Copy-Item "${ProjectRoot}/../obs-studio/deps/w32-pthreads" `
+            -destination "${ProjectRoot}/../obs-build-dependencies/plugin-deps-${Target}/deps/" `
+            -recurse `
+            -exclude "*.c"
+
         $CompressArgs = @{
             Path = "${ProjectRoot}/../obs-build-dependencies/"
             CompressionLevel = 'Optimal'
