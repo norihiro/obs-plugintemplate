@@ -545,10 +545,18 @@ index 0469d39a17..e57659fd9f 100644
  
  EXPORT void obs_register_output_s(const struct obs_output_info *info,
 diff --git a/libobs/obs-scene.c b/libobs/obs-scene.c
-index 530c2f04ad..0b363644f7 100644
+index 530c2f04ad..2d84fe2e5e 100644
 --- a/libobs/obs-scene.c
 +++ b/libobs/obs-scene.c
-@@ -971,9 +971,6 @@ static void scene_load_item(struct obs_scene *scene, obs_data_t *item_data)
+@@ -959,7 +959,6 @@ static void scene_load(void *data, obs_data_t *settings);
+ static void scene_load_item(struct obs_scene *scene, obs_data_t *item_data)
+ {
+ 	const char *name = obs_data_get_string(item_data, "name");
+-	const char *src_uuid = obs_data_get_string(item_data, "source_uuid");
+ 	obs_source_t *source = NULL;
+ 	const char *scale_filter_str;
+ 	const char *blend_method_str;
+@@ -971,9 +970,6 @@ static void scene_load_item(struct obs_scene *scene, obs_data_t *item_data)
  	if (obs_data_get_bool(item_data, "group_item_backup"))
  		return;
  
