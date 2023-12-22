@@ -1,0 +1,1043 @@
+diff --git a/libobs/graphics/bounds.h b/libobs/graphics/bounds.h
+index 6a66d90b4b..bb5eb8fc27 100644
+--- a/libobs/graphics/bounds.h
++++ b/libobs/graphics/bounds.h
+@@ -28,6 +28,10 @@
+ extern "C" {
+ #endif
+ 
++#define BOUNDS_MAX_X 1
++#define BOUNDS_MAX_Y 2
++#define BOUNDS_MAX_Z 4
++
+ #define BOUNDS_OUTSIDE 1
+ #define BOUNDS_INSIDE 2
+ #define BOUNDS_PARTIAL 3
+diff --git a/libobs/graphics/device-exports.h b/libobs/graphics/device-exports.h
+index bff5789511..81e9c92721 100644
+--- a/libobs/graphics/device-exports.h
++++ b/libobs/graphics/device-exports.h
+@@ -177,15 +177,6 @@ EXPORT void device_debug_marker_begin(gs_device_t *device,
+ 				      const char *markername,
+ 				      const float color[4]);
+ EXPORT void device_debug_marker_end(gs_device_t *device);
+-EXPORT bool device_is_monitor_hdr(gs_device_t *device, void *monitor);
+-EXPORT bool device_shared_texture_available(void);
+-
+-#ifdef __APPLE__
+-EXPORT gs_texture_t *device_texture_create_from_iosurface(gs_device_t *device,
+-							  void *iosurf);
+-EXPORT gs_texture_t *device_texture_open_shared(gs_device_t *device,
+-						uint32_t handle);
+-#endif
+ 
+ #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__)
+ 
+@@ -204,10 +195,6 @@ EXPORT bool device_query_dmabuf_modifiers_for_format(gs_device_t *device,
+ 						     uint32_t drm_format,
+ 						     uint64_t **modifiers,
+ 						     size_t *n_modifiers);
+-
+-EXPORT gs_texture_t *device_texture_create_from_pixmap(
+-	gs_device_t *device, uint32_t width, uint32_t height,
+-	enum gs_color_format color_format, uint32_t target, void *pixmap);
+ #endif
+ 
+ #ifdef __cplusplus
+diff --git a/libobs/graphics/graphics.h b/libobs/graphics/graphics.h
+index 0f62d5b955..5b309d0022 100644
+--- a/libobs/graphics/graphics.h
++++ b/libobs/graphics/graphics.h
+@@ -919,9 +919,6 @@ EXPORT void gs_duplicator_destroy(gs_duplicator_t *duplicator);
+ 
+ EXPORT bool gs_duplicator_update_frame(gs_duplicator_t *duplicator);
+ EXPORT gs_texture_t *gs_duplicator_get_texture(gs_duplicator_t *duplicator);
+-EXPORT enum gs_color_space
+-gs_duplicator_get_color_space(gs_duplicator_t *duplicator);
+-EXPORT float gs_duplicator_get_sdr_white_level(gs_duplicator_t *duplicator);
+ 
+ EXPORT uint32_t gs_get_adapter_count(void);
+ 
+diff --git a/libobs/media-io/audio-io.c b/libobs/media-io/audio-io.c
+index 6786990e4c..8f1fdf0eb7 100644
+--- a/libobs/media-io/audio-io.c
++++ b/libobs/media-io/audio-io.c
+@@ -117,9 +117,7 @@ static inline void do_audio_output(struct audio_output *audio, size_t mix_idx,
+ 	for (size_t i = mix->inputs.num; i > 0; i--) {
+ 		struct audio_input *input = mix->inputs.array + (i - 1);
+ 
+-		float(*buf)[AUDIO_OUTPUT_FRAMES] =
+-			input->conversion.allow_clipping ? mix->buffer_unclamped
+-							 : mix->buffer;
++		float(*buf)[AUDIO_OUTPUT_FRAMES] = mix->buffer;
+ 		for (size_t i = 0; i < audio->planes; i++)
+ 			data.data[i] = (uint8_t *)buf[i];
+ 
+diff --git a/libobs/media-io/audio-io.h b/libobs/media-io/audio-io.h
+index 77a1fad816..ed0387605f 100644
+--- a/libobs/media-io/audio-io.h
++++ b/libobs/media-io/audio-io.h
+@@ -105,7 +105,6 @@ struct audio_convert_info {
+ 	uint32_t samples_per_sec;
+ 	enum audio_format format;
+ 	enum speaker_layout speakers;
+-	bool allow_clipping;
+ };
+ 
+ static inline uint32_t get_audio_channels(enum speaker_layout speakers)
+diff --git a/libobs/media-io/video-frame.c b/libobs/media-io/video-frame.c
+index 5615468efd..f4819f00c2 100644
+--- a/libobs/media-io/video-frame.c
++++ b/libobs/media-io/video-frame.c
+@@ -303,42 +303,6 @@ void video_frame_init(struct video_frame *frame, enum video_format format,
+ 		frame->linesize[1] = cbcr_width * 2;
+ 		break;
+ 	}
+-
+-	case VIDEO_FORMAT_P216: {
+-		size = width * height * 2;
+-		ALIGN_SIZE(size, alignment);
+-		offsets[0] = size;
+-		const uint32_t cbcr_width = (width + 1) & (UINT32_MAX - 1);
+-		size += cbcr_width * height * 2;
+-		ALIGN_SIZE(size, alignment);
+-		frame->data[0] = bmalloc(size);
+-		frame->data[1] = (uint8_t *)frame->data[0] + offsets[0];
+-		frame->linesize[0] = width * 2;
+-		frame->linesize[1] = cbcr_width * 2;
+-		break;
+-	}
+-
+-	case VIDEO_FORMAT_P416: {
+-		size = width * height * 2;
+-		ALIGN_SIZE(size, alignment);
+-		offsets[0] = size;
+-		size += width * height * 4;
+-		ALIGN_SIZE(size, alignment);
+-		frame->data[0] = bmalloc(size);
+-		frame->data[1] = (uint8_t *)frame->data[0] + offsets[0];
+-		frame->linesize[0] = width * 2;
+-		frame->linesize[1] = width * 4;
+-		break;
+-	}
+-
+-	case VIDEO_FORMAT_V210: {
+-		const uint32_t adjusted_width = ((width + 5) / 6) * 16;
+-		size = adjusted_width * height;
+-		ALIGN_SIZE(size, alignment);
+-		frame->data[0] = bmalloc(size);
+-		frame->linesize[0] = adjusted_width;
+-		break;
+-	}
+ 	}
+ }
+ 
+@@ -371,9 +335,6 @@ void video_frame_copy(struct video_frame *dst, const struct video_frame *src,
+ 	case VIDEO_FORMAT_BGRX:
+ 	case VIDEO_FORMAT_BGR3:
+ 	case VIDEO_FORMAT_AYUV:
+-	case VIDEO_FORMAT_V210:
+-		memcpy(dst->data[0], src->data[0], src->linesize[0] * cy);
+-		break;
+ 
+ 	case VIDEO_FORMAT_I444:
+ 	case VIDEO_FORMAT_I422:
+@@ -399,11 +360,5 @@ void video_frame_copy(struct video_frame *dst, const struct video_frame *src,
+ 		memcpy(dst->data[2], src->data[2], src->linesize[2] * cy);
+ 		memcpy(dst->data[3], src->data[3], src->linesize[3] * cy);
+ 		break;
+-
+-	case VIDEO_FORMAT_P216:
+-	case VIDEO_FORMAT_P416:
+-		memcpy(dst->data[0], src->data[0], src->linesize[0] * cy);
+-		memcpy(dst->data[1], src->data[1], src->linesize[1] * cy);
+-		break;
+ 	}
+ }
+diff --git a/libobs/media-io/video-io.h b/libobs/media-io/video-io.h
+index aef5cadad8..97985a9410 100644
+--- a/libobs/media-io/video-io.h
++++ b/libobs/media-io/video-io.h
+@@ -74,23 +74,14 @@ enum video_format {
+ 	VIDEO_FORMAT_I010, /* three-plane */
+ 	VIDEO_FORMAT_P010, /* two-plane, luma and packed chroma */
+ 
+-	/* planar 4:2:2 format, 10 bpp */
+-	VIDEO_FORMAT_I210,
++	/* planar 4:2:2 10 bits */
++	VIDEO_FORMAT_I210, // Little Endian
+ 
+-	/* planar 4:4:4 format, 12 bpp */
+-	VIDEO_FORMAT_I412,
++	/* planar 4:4:4 12 bits */
++	VIDEO_FORMAT_I412, // Little Endian
+ 
+-	/* planar 4:4:4:4 format, 12 bpp */
+-	VIDEO_FORMAT_YA2L,
+-
+-	/* planar 4:2:2 format, 16 bpp */
+-	VIDEO_FORMAT_P216, /* two-plane, luma and packed chroma */
+-
+-	/* planar 4:4:4 format, 16 bpp */
+-	VIDEO_FORMAT_P416, /* two-plane, luma and packed chroma */
+-
+-	/* packed 4:2:2 format, 10 bpp */
+-	VIDEO_FORMAT_V210,
++	/* planar 4:4:4 12 bits with alpha */
++	VIDEO_FORMAT_YA2L, // Little Endian
+ };
+ 
+ enum video_trc {
+@@ -154,9 +145,6 @@ static inline bool format_is_yuv(enum video_format format)
+ 	case VIDEO_FORMAT_AYUV:
+ 	case VIDEO_FORMAT_I010:
+ 	case VIDEO_FORMAT_P010:
+-	case VIDEO_FORMAT_P216:
+-	case VIDEO_FORMAT_P416:
+-	case VIDEO_FORMAT_V210:
+ 		return true;
+ 	case VIDEO_FORMAT_NONE:
+ 	case VIDEO_FORMAT_RGBA:
+@@ -215,12 +203,6 @@ static inline const char *get_video_format_name(enum video_format format)
+ 		return "I010";
+ 	case VIDEO_FORMAT_P010:
+ 		return "P010";
+-	case VIDEO_FORMAT_P216:
+-		return "P216";
+-	case VIDEO_FORMAT_P416:
+-		return "P416";
+-	case VIDEO_FORMAT_V210:
+-		return "v210";
+ 	case VIDEO_FORMAT_NONE:;
+ 	}
+ 
+diff --git a/libobs/media-io/video-matrices.c b/libobs/media-io/video-matrices.c
+index 7b3d4b6822..3e8509fba8 100644
+--- a/libobs/media-io/video-matrices.c
++++ b/libobs/media-io/video-matrices.c
+@@ -263,17 +263,10 @@ bool video_format_get_parameters_for_format(enum video_colorspace color_space,
+ 	case VIDEO_FORMAT_I010:
+ 	case VIDEO_FORMAT_P010:
+ 	case VIDEO_FORMAT_I210:
+-	case VIDEO_FORMAT_V210:
+-		bpc = 10;
+-		break;
+ 	case VIDEO_FORMAT_I412:
+ 	case VIDEO_FORMAT_YA2L:
+ 		bpc = 12;
+ 		break;
+-	case VIDEO_FORMAT_P216:
+-	case VIDEO_FORMAT_P416:
+-		bpc = 16;
+-		break;
+ 	default:
+ 		bpc = 8;
+ 		break;
+diff --git a/libobs/media-io/video-scaler-ffmpeg.c b/libobs/media-io/video-scaler-ffmpeg.c
+index 102ca3d81d..87afd0b28d 100644
+--- a/libobs/media-io/video-scaler-ffmpeg.c
++++ b/libobs/media-io/video-scaler-ffmpeg.c
+@@ -76,12 +76,6 @@ get_ffmpeg_video_format(enum video_format format)
+ 		return AV_PIX_FMT_YUV420P10LE;
+ 	case VIDEO_FORMAT_P010:
+ 		return AV_PIX_FMT_P010LE;
+-#if LIBAVUTIL_BUILD >= AV_VERSION_INT(57, 17, 100)
+-	case VIDEO_FORMAT_P216:
+-		return AV_PIX_FMT_P216LE;
+-	case VIDEO_FORMAT_P416:
+-		return AV_PIX_FMT_P416LE;
+-#endif
+ 	case VIDEO_FORMAT_NONE:
+ 	case VIDEO_FORMAT_AYUV:
+ 	default:
+diff --git a/libobs/obs-config.h b/libobs/obs-config.h
+index 20ce99aab4..5fcc6bea0f 100644
+--- a/libobs/obs-config.h
++++ b/libobs/obs-config.h
+@@ -34,14 +34,14 @@
+  *
+  * Reset to zero each major version
+  */
+-#define LIBOBS_API_MINOR_VER 1
++#define LIBOBS_API_MINOR_VER 0
+ 
+ /*
+  * Increment if backward-compatible bug fix
+  *
+  * Reset to zero each major or minor version
+  */
+-#define LIBOBS_API_PATCH_VER 2
++#define LIBOBS_API_PATCH_VER 0
+ 
+ #define MAKE_SEMANTIC_VERSION(major, minor, patch) \
+ 	((major << 24) | (minor << 16) | patch)
+diff --git a/libobs/obs-data.h b/libobs/obs-data.h
+index 438acbcff9..09a1f27640 100644
+--- a/libobs/obs-data.h
++++ b/libobs/obs-data.h
+@@ -70,15 +70,11 @@ EXPORT void obs_data_addref(obs_data_t *data);
+ EXPORT void obs_data_release(obs_data_t *data);
+ 
+ EXPORT const char *obs_data_get_json(obs_data_t *data);
+-EXPORT const char *obs_data_get_json_pretty(obs_data_t *data);
+ EXPORT const char *obs_data_get_last_json(obs_data_t *data);
+ EXPORT bool obs_data_save_json(obs_data_t *data, const char *file);
+ EXPORT bool obs_data_save_json_safe(obs_data_t *data, const char *file,
+ 				    const char *temp_ext,
+ 				    const char *backup_ext);
+-EXPORT bool obs_data_save_json_pretty_safe(obs_data_t *data, const char *file,
+-					   const char *temp_ext,
+-					   const char *backup_ext);
+ 
+ EXPORT void obs_data_apply(obs_data_t *target, obs_data_t *apply_data);
+ 
+diff --git a/libobs/obs-defs.h b/libobs/obs-defs.h
+index 141b03fa11..b3e224d42c 100644
+--- a/libobs/obs-defs.h
++++ b/libobs/obs-defs.h
+@@ -42,7 +42,6 @@
+ #define OBS_OUTPUT_UNSUPPORTED -6
+ #define OBS_OUTPUT_NO_SPACE -7
+ #define OBS_OUTPUT_ENCODE_ERROR -8
+-#define OBS_OUTPUT_HDR_DISABLED -9
+ 
+ #define OBS_VIDEO_SUCCESS 0
+ #define OBS_VIDEO_FAIL -1
+diff --git a/libobs/obs-interaction.h b/libobs/obs-interaction.h
+index dd9d038ffd..604cd1fe57 100644
+--- a/libobs/obs-interaction.h
++++ b/libobs/obs-interaction.h
+@@ -54,3 +54,4 @@ struct obs_key_event {
+ 	uint32_t native_scancode;
+ 	uint32_t native_vkey;
+ };
++
+diff --git a/libobs/obs-internal.h b/libobs/obs-internal.h
+index 1ea555c3ac..3a1c7b606e 100644
+--- a/libobs/obs-internal.h
++++ b/libobs/obs-internal.h
+@@ -951,9 +951,6 @@ convert_video_format(enum video_format format, enum video_trc trc)
+ 		case VIDEO_FORMAT_I210:
+ 		case VIDEO_FORMAT_I412:
+ 		case VIDEO_FORMAT_YA2L:
+-		case VIDEO_FORMAT_P216:
+-		case VIDEO_FORMAT_P416:
+-		case VIDEO_FORMAT_V210:
+ 			return GS_RGBA16F;
+ 		default:
+ 			return GS_BGRX;
+@@ -1313,3 +1310,36 @@ void obs_service_destroy(obs_service_t *service);
+ 
+ void obs_output_remove_encoder_internal(struct obs_output *output,
+ 					struct obs_encoder *encoder);
++
++/** Gets the UUID of a source */
++EXPORT const char *obs_source_get_uuid(const obs_source_t *source);
++
++EXPORT const char *obs_output_get_protocols(const obs_output_t *output);
++EXPORT bool obs_is_output_protocol_registered(const char *protocol);
++EXPORT bool obs_enum_output_protocols(size_t idx, char **protocol);
++EXPORT void obs_enum_output_types_with_protocol(
++	const char *protocol, void *data,
++	bool (*enum_cb)(void *data, const char *id));
++EXPORT const char *obs_get_output_supported_video_codecs(const char *id);
++EXPORT const char *obs_get_output_supported_audio_codecs(const char *id);
++
++/** Gets the video conversion info.  Used only for raw output */
++EXPORT const struct video_scale_info *
++obs_output_get_video_conversion(obs_output_t *output);
++
++/** Returns the protocol for this service context */
++EXPORT const char *obs_service_get_protocol(const obs_service_t *service);
++
++EXPORT const char *
++obs_service_get_preferred_output_type(const obs_service_t *service);
++
++EXPORT const char *obs_service_get_connect_info(const obs_service_t *service,
++						uint32_t type);
++
++EXPORT char *os_generate_uuid(void);
++
++EXPORT const char **
++obs_service_get_supported_audio_codecs(const obs_service_t *service);
++
++EXPORT bool obs_service_can_try_to_connect(const obs_service_t *service);
++
+diff --git a/libobs/obs-module.c b/libobs/obs-module.c
+index cd7841b6c1..7ec3b74ba5 100644
+--- a/libobs/obs-module.c
++++ b/libobs/obs-module.c
+@@ -821,66 +821,8 @@ error:
+ 
+ void obs_register_output_s(const struct obs_output_info *info, size_t size)
+ {
+-	if (find_output(info->id)) {
+-		output_warn("Output id '%s' already exists!  "
+-			    "Duplicate library?",
+-			    info->id);
+-		goto error;
+-	}
+-
+-#define CHECK_REQUIRED_VAL_(info, val, func) \
+-	CHECK_REQUIRED_VAL(struct obs_output_info, info, val, func)
+-	CHECK_REQUIRED_VAL_(info, get_name, obs_register_output);
+-	CHECK_REQUIRED_VAL_(info, create, obs_register_output);
+-	CHECK_REQUIRED_VAL_(info, destroy, obs_register_output);
+-	CHECK_REQUIRED_VAL_(info, start, obs_register_output);
+-	CHECK_REQUIRED_VAL_(info, stop, obs_register_output);
+-
+-	if (info->flags & OBS_OUTPUT_SERVICE)
+-		CHECK_REQUIRED_VAL_(info, protocols, obs_register_output);
+-
+-	if (info->flags & OBS_OUTPUT_ENCODED) {
+-		CHECK_REQUIRED_VAL_(info, encoded_packet, obs_register_output);
+-	} else {
+-		if (info->flags & OBS_OUTPUT_VIDEO)
+-			CHECK_REQUIRED_VAL_(info, raw_video,
+-					    obs_register_output);
+-
+-		if (info->flags & OBS_OUTPUT_AUDIO) {
+-			if (info->flags & OBS_OUTPUT_MULTI_TRACK) {
+-				CHECK_REQUIRED_VAL_(info, raw_audio2,
+-						    obs_register_output);
+-			} else {
+-				CHECK_REQUIRED_VAL_(info, raw_audio,
+-						    obs_register_output);
+-			}
+-		}
+-	}
+-#undef CHECK_REQUIRED_VAL_
+-
+-	REGISTER_OBS_DEF(size, obs_output_info, obs->output_types, info);
+-
+-	if (info->flags & OBS_OUTPUT_SERVICE) {
+-		char **protocols = strlist_split(info->protocols, ';', false);
+-		for (char **protocol = protocols; *protocol; ++protocol) {
+-			bool skip = false;
+-			for (size_t i = 0; i < obs->data.protocols.num; i++) {
+-				if (strcmp(*protocol,
+-					   obs->data.protocols.array[i]) == 0)
+-					skip = true;
+-			}
+-
+-			if (skip)
+-				continue;
+-			char *new_prtcl = bstrdup(*protocol);
+-			da_push_back(obs->data.protocols, &new_prtcl);
+-		}
+-		strlist_free(protocols);
+-	}
+-	return;
+-
+-error:
+-	HANDLE_ERROR(size, obs_output_info, info);
++	UNUSED_PARAMETER(info);
++	UNUSED_PARAMETER(size);
+ }
+ 
+ void obs_register_encoder_s(const struct obs_encoder_info *info, size_t size)
+@@ -916,26 +858,10 @@ error:
+ 
+ void obs_register_service_s(const struct obs_service_info *info, size_t size)
+ {
+-	if (find_service(info->id)) {
+-		service_warn("Service id '%s' already exists!  "
+-			     "Duplicate library?",
+-			     info->id);
+-		goto error;
+-	}
+-
+-#define CHECK_REQUIRED_VAL_(info, val, func) \
+-	CHECK_REQUIRED_VAL(struct obs_service_info, info, val, func)
+-	CHECK_REQUIRED_VAL_(info, get_name, obs_register_service);
+-	CHECK_REQUIRED_VAL_(info, create, obs_register_service);
+-	CHECK_REQUIRED_VAL_(info, destroy, obs_register_service);
+-	CHECK_REQUIRED_VAL_(info, get_protocol, obs_register_service);
+-#undef CHECK_REQUIRED_VAL_
++	UNUSED_PARAMETER(info);
++	UNUSED_PARAMETER(size);
+ 
+-	REGISTER_OBS_DEF(size, obs_service_info, obs->service_types, info);
+ 	return;
+-
+-error:
+-	HANDLE_ERROR(size, obs_service_info, info);
+ }
+ 
+ void obs_register_modal_ui_s(const struct obs_modal_ui *info, size_t size)
+diff --git a/libobs/obs-output.c b/libobs/obs-output.c
+index fdb9ae3462..ba7d2e85e9 100644
+--- a/libobs/obs-output.c
++++ b/libobs/obs-output.c
+@@ -2717,50 +2717,28 @@ const char *obs_output_get_supported_audio_codecs(const obs_output_t *output)
+ 
+ const char *obs_output_get_protocols(const obs_output_t *output)
+ {
+-	if (!obs_output_valid(output, "obs_output_get_protocols"))
+-		return NULL;
+-
+-	return (output->info.flags & OBS_OUTPUT_SERVICE)
+-		       ? output->info.protocols
+-		       : NULL;
++	UNUSED_PARAMETER(output);
++	return NULL;
+ }
+ 
+ void obs_enum_output_types_with_protocol(const char *protocol, void *data,
+ 					 bool (*enum_cb)(void *data,
+ 							 const char *id))
+ {
+-	if (!obs_is_output_protocol_registered(protocol))
+-		return;
+-
+-	size_t protocol_len = strlen(protocol);
+-	for (size_t i = 0; i < obs->output_types.num; i++) {
+-		if (!(obs->output_types.array[i].flags & OBS_OUTPUT_SERVICE))
+-			continue;
+-
+-		const char *substr = obs->output_types.array[i].protocols;
+-		while (substr && substr[0] != '\0') {
+-			const char *next = strchr(substr, ';');
+-			size_t len = next ? (size_t)(next - substr)
+-					  : strlen(substr);
+-			if (protocol_len == len &&
+-			    strncmp(substr, protocol, len) == 0) {
+-				if (!enum_cb(data,
+-					     obs->output_types.array[i].id))
+-					return;
+-			}
+-			substr = next ? next + 1 : NULL;
+-		}
+-	}
++	UNUSED_PARAMETER(protocol);
++	UNUSED_PARAMETER(data);
++	UNUSED_PARAMETER(enum_cb);
++	return;
+ }
+ 
+ const char *obs_get_output_supported_video_codecs(const char *id)
+ {
+-	const struct obs_output_info *info = find_output(id);
+-	return info ? info->encoded_video_codecs : NULL;
++	UNUSED_PARAMETER(id);
++	return NULL;
+ }
+ 
+ const char *obs_get_output_supported_audio_codecs(const char *id)
+ {
+-	const struct obs_output_info *info = find_output(id);
+-	return info ? info->encoded_audio_codecs : NULL;
++	UNUSED_PARAMETER(id);
++	return NULL;
+ }
+diff --git a/libobs/obs-output.h b/libobs/obs-output.h
+index 0469d39a17..e57659fd9f 100644
+--- a/libobs/obs-output.h
++++ b/libobs/obs-output.h
+@@ -77,9 +77,6 @@ struct obs_output_info {
+ 
+ 	/* raw audio callback for multi track outputs */
+ 	void (*raw_audio2)(void *data, size_t idx, struct audio_data *frames);
+-
+-	/* required if OBS_OUTPUT_SERVICE */
+-	const char *protocols;
+ };
+ 
+ EXPORT void obs_register_output_s(const struct obs_output_info *info,
+diff --git a/libobs/obs-scene.c b/libobs/obs-scene.c
+index 530c2f04ad..0b363644f7 100644
+--- a/libobs/obs-scene.c
++++ b/libobs/obs-scene.c
+@@ -971,9 +971,6 @@ static void scene_load_item(struct obs_scene *scene, obs_data_t *item_data)
+ 	if (obs_data_get_bool(item_data, "group_item_backup"))
+ 		return;
+ 
+-	if (src_uuid && strlen(src_uuid) == UUID_STR_LENGTH)
+-		source = obs_get_source_by_uuid(src_uuid);
+-
+ 	/* Fall back to name if UUID was not found or is not set. */
+ 	if (!source)
+ 		source = obs_get_source_by_name(name);
+diff --git a/libobs/obs-service.c b/libobs/obs-service.c
+index 8ade7cb92c..a0e56ab6a7 100644
+--- a/libobs/obs-service.c
++++ b/libobs/obs-service.c
+@@ -471,18 +471,14 @@ obs_service_get_supported_video_codecs(const obs_service_t *service)
+ const char **
+ obs_service_get_supported_audio_codecs(const obs_service_t *service)
+ {
+-	if (service->info.get_supported_audio_codecs)
+-		return service->info.get_supported_audio_codecs(
+-			service->context.data);
++	UNUSED_PARAMETER(service);
+ 	return NULL;
+ }
+ 
+ const char *obs_service_get_protocol(const obs_service_t *service)
+ {
+-	if (!obs_service_valid(service, "obs_service_get_protocol"))
+-		return NULL;
+-
+-	return service->info.get_protocol(service->context.data);
++	UNUSED_PARAMETER(service);
++	return NULL;
+ }
+ 
+ /* OBS_DEPRECATED */
+@@ -493,32 +489,20 @@ const char *obs_service_get_output_type(const obs_service_t *service)
+ 
+ const char *obs_service_get_preferred_output_type(const obs_service_t *service)
+ {
+-	if (!obs_service_valid(service,
+-			       "obs_service_get_preferred_output_type"))
+-		return NULL;
+-
+-	if (service->info.get_output_type)
+-		return service->info.get_output_type(service->context.data);
++	UNUSED_PARAMETER(service);
+ 	return NULL;
+ }
+ 
+ const char *obs_service_get_connect_info(const obs_service_t *service,
+ 					 uint32_t type)
+ {
+-	if (!obs_service_valid(service, "obs_service_get_info"))
+-		return NULL;
+-
+-	if (!service->info.get_connect_info)
+-		return NULL;
+-	return service->info.get_connect_info(service->context.data, type);
++	UNUSED_PARAMETER(service);
++	UNUSED_PARAMETER(type);
++	return NULL;
+ }
+ 
+ bool obs_service_can_try_to_connect(const obs_service_t *service)
+ {
+-	if (!obs_service_valid(service, "obs_service_can_connect"))
+-		return false;
+-
+-	if (!service->info.can_try_to_connect)
+-		return true;
+-	return service->info.can_try_to_connect(service->context.data);
++	UNUSED_PARAMETER(service);
++	return false;
+ }
+diff --git a/libobs/obs-service.h b/libobs/obs-service.h
+index 7f74fc1da0..e8e5d9542c 100644
+--- a/libobs/obs-service.h
++++ b/libobs/obs-service.h
+@@ -88,7 +88,6 @@ struct obs_service_info {
+ 	void *type_data;
+ 	void (*free_type_data)(void *type_data);
+ 
+-	/* TODO: Rename to 'get_preferred_output_type' once a API/ABI break happen */
+ 	const char *(*get_output_type)(void *data);
+ 
+ 	void (*get_supported_resolutions)(
+@@ -100,14 +99,6 @@ struct obs_service_info {
+ 				int *audio_bitrate);
+ 
+ 	const char **(*get_supported_video_codecs)(void *data);
+-
+-	const char *(*get_protocol)(void *data);
+-
+-	const char **(*get_supported_audio_codecs)(void *data);
+-
+-	const char *(*get_connect_info)(void *data, uint32_t type);
+-
+-	bool (*can_try_to_connect)(void *data);
+ };
+ 
+ EXPORT void obs_register_service_s(const struct obs_service_info *info,
+diff --git a/libobs/obs-source.c b/libobs/obs-source.c
+index 230ab13452..dbea04476f 100644
+--- a/libobs/obs-source.c
++++ b/libobs/obs-source.c
+@@ -1648,14 +1648,6 @@ static inline enum convert_type get_convert_type(enum video_format format,
+ 
+ 	case VIDEO_FORMAT_P010:
+ 		return CONVERT_P010;
+-
+-	case VIDEO_FORMAT_V210:
+-		return CONVERT_V210;
+-
+-	case VIDEO_FORMAT_P216:
+-	case VIDEO_FORMAT_P416:
+-		/* Unimplemented */
+-		break;
+ 	}
+ 
+ 	return CONVERT_NONE;
+@@ -2234,17 +2226,6 @@ static const char *select_conversion_technique(enum video_format format,
+ 		}
+ 	}
+ 
+-	case VIDEO_FORMAT_V210: {
+-		switch (trc) {
+-		case VIDEO_TRC_PQ:
+-			return "V210_PQ_2020_709_Reverse";
+-		case VIDEO_TRC_HLG:
+-			return "V210_HLG_2020_709_Reverse";
+-		default:
+-			return "V210_SRGB_Reverse";
+-		}
+-	}
+-
+ 	case VIDEO_FORMAT_BGRA:
+ 	case VIDEO_FORMAT_BGRX:
+ 	case VIDEO_FORMAT_RGBA:
+@@ -2254,11 +2235,6 @@ static const char *select_conversion_technique(enum video_format format,
+ 		else
+ 			return "RGB_Limited";
+ 		break;
+-
+-	case VIDEO_FORMAT_P216:
+-	case VIDEO_FORMAT_P416:
+-		/* Unimplemented */
+-		break;
+ 	}
+ 	return NULL;
+ }
+@@ -3405,7 +3381,6 @@ static void copy_frame_data(struct obs_source_frame *dst,
+ 	case VIDEO_FORMAT_Y800:
+ 	case VIDEO_FORMAT_BGR3:
+ 	case VIDEO_FORMAT_AYUV:
+-	case VIDEO_FORMAT_V210:
+ 		copy_frame_data_plane(dst, src, 0, dst->height);
+ 		break;
+ 
+@@ -3427,11 +3402,6 @@ static void copy_frame_data(struct obs_source_frame *dst,
+ 		copy_frame_data_plane(dst, src, 2, dst->height);
+ 		copy_frame_data_plane(dst, src, 3, dst->height);
+ 		break;
+-
+-	case VIDEO_FORMAT_P216:
+-	case VIDEO_FORMAT_P416:
+-		/* Unimplemented */
+-		break;
+ 	}
+ }
+ 
+diff --git a/libobs/obs-video.c b/libobs/obs-video.c
+index 60acaaf6f6..a142055453 100644
+--- a/libobs/obs-video.c
++++ b/libobs/obs-video.c
+@@ -734,33 +734,6 @@ static void set_gpu_converted_data(struct video_frame *output,
+ 
+ 		break;
+ 	}
+-	case VIDEO_FORMAT_P216: {
+-		const uint32_t width_x2 = info->width * 2;
+-		const uint32_t height = info->height;
+-
+-		set_gpu_converted_plane(width_x2, height, input->linesize[0],
+-					output->linesize[0], input->data[0],
+-					output->data[0]);
+-
+-		set_gpu_converted_plane(width_x2, height, input->linesize[1],
+-					output->linesize[1], input->data[1],
+-					output->data[1]);
+-
+-		break;
+-	}
+-	case VIDEO_FORMAT_P416: {
+-		const uint32_t height = info->height;
+-
+-		set_gpu_converted_plane(info->width * 2, height,
+-					input->linesize[0], output->linesize[0],
+-					input->data[0], output->data[0]);
+-
+-		set_gpu_converted_plane(info->width * 4, height,
+-					input->linesize[1], output->linesize[1],
+-					input->data[1], output->data[1]);
+-
+-		break;
+-	}
+ 
+ 	case VIDEO_FORMAT_NONE:
+ 	case VIDEO_FORMAT_YVYU:
+@@ -779,7 +752,6 @@ static void set_gpu_converted_data(struct video_frame *output,
+ 	case VIDEO_FORMAT_YUVA:
+ 	case VIDEO_FORMAT_YA2L:
+ 	case VIDEO_FORMAT_AYUV:
+-	case VIDEO_FORMAT_V210:
+ 		/* unimplemented */
+ 		;
+ 	}
+diff --git a/libobs/obs.c b/libobs/obs.c
+index 1850ecc758..f76de90de0 100644
+--- a/libobs/obs.c
++++ b/libobs/obs.c
+@@ -109,36 +109,6 @@ static inline void calc_gpu_conversion_sizes(struct obs_core_video_mix *video)
+ 			video->conversion_techs[1] = "P010_SRGB_UV";
+ 		}
+ 		break;
+-	case VIDEO_FORMAT_P216:
+-		video->conversion_needed = true;
+-		video->conversion_width_i = 1.f / (float)info->width;
+-		video->conversion_height_i = 1.f / (float)info->height;
+-		if (info->colorspace == VIDEO_CS_2100_PQ) {
+-			video->conversion_techs[0] = "P216_PQ_Y";
+-			video->conversion_techs[1] = "P216_PQ_UV";
+-		} else if (info->colorspace == VIDEO_CS_2100_HLG) {
+-			video->conversion_techs[0] = "P216_HLG_Y";
+-			video->conversion_techs[1] = "P216_HLG_UV";
+-		} else {
+-			video->conversion_techs[0] = "P216_SRGB_Y";
+-			video->conversion_techs[1] = "P216_SRGB_UV";
+-		}
+-		break;
+-	case VIDEO_FORMAT_P416:
+-		video->conversion_needed = true;
+-		video->conversion_width_i = 1.f / (float)info->width;
+-		video->conversion_height_i = 1.f / (float)info->height;
+-		if (info->colorspace == VIDEO_CS_2100_PQ) {
+-			video->conversion_techs[0] = "P416_PQ_Y";
+-			video->conversion_techs[1] = "P416_PQ_UV";
+-		} else if (info->colorspace == VIDEO_CS_2100_HLG) {
+-			video->conversion_techs[0] = "P416_HLG_Y";
+-			video->conversion_techs[1] = "P416_HLG_UV";
+-		} else {
+-			video->conversion_techs[0] = "P416_SRGB_Y";
+-			video->conversion_techs[1] = "P416_SRGB_UV";
+-		}
+-		break;
+ 	default:
+ 		break;
+ 	}
+@@ -267,26 +237,6 @@ static bool obs_init_gpu_conversion(struct obs_core_video_mix *video)
+ 		if (!video->convert_textures[0] || !video->convert_textures[1])
+ 			success = false;
+ 		break;
+-	case VIDEO_FORMAT_P216:
+-		video->convert_textures[0] =
+-			gs_texture_create(info->width, info->height, GS_R16, 1,
+-					  NULL, GS_RENDER_TARGET);
+-		video->convert_textures[1] =
+-			gs_texture_create(info->width / 2, info->height,
+-					  GS_RG16, 1, NULL, GS_RENDER_TARGET);
+-		if (!video->convert_textures[0] || !video->convert_textures[1])
+-			success = false;
+-		break;
+-	case VIDEO_FORMAT_P416:
+-		video->convert_textures[0] =
+-			gs_texture_create(info->width, info->height, GS_R16, 1,
+-					  NULL, GS_RENDER_TARGET);
+-		video->convert_textures[1] =
+-			gs_texture_create(info->width, info->height, GS_RG16, 1,
+-					  NULL, GS_RENDER_TARGET);
+-		if (!video->convert_textures[0] || !video->convert_textures[1])
+-			success = false;
+-		break;
+ 	default:
+ 		break;
+ 	}
+@@ -378,26 +328,6 @@ static bool obs_init_gpu_copy_surfaces(struct obs_core_video_mix *video,
+ 		if (!video->copy_surfaces[i][1])
+ 			return false;
+ 		break;
+-	case VIDEO_FORMAT_P216:
+-		video->copy_surfaces[i][0] = gs_stagesurface_create(
+-			info->width, info->height, GS_R16);
+-		if (!video->copy_surfaces[i][0])
+-			return false;
+-		video->copy_surfaces[i][1] = gs_stagesurface_create(
+-			info->width / 2, info->height, GS_RG16);
+-		if (!video->copy_surfaces[i][1])
+-			return false;
+-		break;
+-	case VIDEO_FORMAT_P416:
+-		video->copy_surfaces[i][0] = gs_stagesurface_create(
+-			info->width, info->height, GS_R16);
+-		if (!video->copy_surfaces[i][0])
+-			return false;
+-		video->copy_surfaces[i][1] = gs_stagesurface_create(
+-			info->width, info->height, GS_RG16);
+-		if (!video->copy_surfaces[i][1])
+-			return false;
+-		break;
+ 	default:
+ 		break;
+ 	}
+@@ -419,8 +349,6 @@ static bool obs_init_textures(struct obs_core_video_mix *video)
+ 	case VIDEO_FORMAT_I210:
+ 	case VIDEO_FORMAT_I412:
+ 	case VIDEO_FORMAT_YA2L:
+-	case VIDEO_FORMAT_P216:
+-	case VIDEO_FORMAT_P416:
+ 		format = GS_RGBA16F;
+ 		break;
+ 	default:
+@@ -473,8 +401,6 @@ static bool obs_init_textures(struct obs_core_video_mix *video)
+ 		switch (info->format) {
+ 		case VIDEO_FORMAT_I010:
+ 		case VIDEO_FORMAT_P010:
+-		case VIDEO_FORMAT_P216:
+-		case VIDEO_FORMAT_P416:
+ 			space = GS_CS_SRGB_16F;
+ 			break;
+ 		default:
+diff --git a/libobs/obs.h b/libobs/obs.h
+index 3e31a59fa6..1e56cc3847 100644
+--- a/libobs/obs.h
++++ b/libobs/obs.h
+@@ -697,20 +697,9 @@ EXPORT void obs_enum_services(bool (*enum_proc)(void *, obs_service_t *),
+  */
+ EXPORT obs_source_t *obs_get_source_by_name(const char *name);
+ 
+-/**
+- * Gets a source by its UUID.
+- *
+- *   Increments the source reference counter, use obs_source_release to
+- * release it when complete.
+- */
+-EXPORT obs_source_t *obs_get_source_by_uuid(const char *uuid);
+-
+ /** Get a transition source by its name. */
+ EXPORT obs_source_t *obs_get_transition_by_name(const char *name);
+ 
+-/** Get a transition source by its UUID. */
+-EXPORT obs_source_t *obs_get_transition_by_uuid(const char *uuid);
+-
+ /** Gets an output by its name. */
+ EXPORT obs_output_t *obs_get_output_by_name(const char *name);
+ 
+@@ -801,10 +790,6 @@ typedef bool (*obs_save_source_filter_cb)(void *data, obs_source_t *source);
+ EXPORT obs_data_array_t *obs_save_sources_filtered(obs_save_source_filter_cb cb,
+ 						   void *data);
+ 
+-/** Reset source UUIDs. NOTE: this function is only to be used by the UI and
+- *  will be removed in a future version! */
+-EXPORT void obs_reset_source_uuids(void);
+-
+ enum obs_obj_type {
+ 	OBS_OBJ_TYPE_INVALID,
+ 	OBS_OBJ_TYPE_SOURCE,
+@@ -841,11 +826,6 @@ EXPORT void obs_add_main_render_callback(void (*draw)(void *param, uint32_t cx,
+ EXPORT void obs_remove_main_render_callback(
+ 	void (*draw)(void *param, uint32_t cx, uint32_t cy), void *param);
+ 
+-EXPORT void obs_add_main_rendered_callback(void (*rendered)(void *param),
+-					   void *param);
+-EXPORT void obs_remove_main_rendered_callback(void (*rendered)(void *param),
+-					      void *param);
+-
+ EXPORT void obs_add_raw_video_callback(
+ 	const struct video_scale_info *conversion,
+ 	void (*callback)(void *param, struct video_data *frame), void *param);
+@@ -938,10 +918,6 @@ EXPORT video_t *obs_view_add2(obs_view_t *view, struct obs_video_info *ovi);
+ /** Removes a view from the main render loop */
+ EXPORT void obs_view_remove(obs_view_t *view);
+ 
+-/** Gets the video settings currently in use for this view context, returns false if no video */
+-EXPORT bool obs_view_get_video_info(obs_view_t *view,
+-				    struct obs_video_info *ovi);
+-
+ /* ------------------------------------------------------------------------- */
+ /* Display context */
+ 
+@@ -1139,9 +1115,6 @@ EXPORT const char *obs_source_get_name(const obs_source_t *source);
+ /** Sets the name of a source */
+ EXPORT void obs_source_set_name(obs_source_t *source, const char *name);
+ 
+-/** Gets the UUID of a source */
+-EXPORT const char *obs_source_get_uuid(const obs_source_t *source);
+-
+ /** Gets the source type */
+ EXPORT enum obs_source_type obs_source_get_type(const obs_source_t *source);
+ 
+@@ -2216,29 +2189,11 @@ obs_output_get_supported_video_codecs(const obs_output_t *output);
+ EXPORT const char *
+ obs_output_get_supported_audio_codecs(const obs_output_t *output);
+ 
+-EXPORT const char *obs_output_get_protocols(const obs_output_t *output);
+-
+-EXPORT bool obs_is_output_protocol_registered(const char *protocol);
+-
+-EXPORT bool obs_enum_output_protocols(size_t idx, char **protocol);
+-
+-EXPORT void obs_enum_output_types_with_protocol(
+-	const char *protocol, void *data,
+-	bool (*enum_cb)(void *data, const char *id));
+-
+-EXPORT const char *obs_get_output_supported_video_codecs(const char *id);
+-
+-EXPORT const char *obs_get_output_supported_audio_codecs(const char *id);
+-
+ /* ------------------------------------------------------------------------- */
+ /* Functions used by outputs */
+ 
+ EXPORT void *obs_output_get_type_data(obs_output_t *output);
+ 
+-/** Gets the video conversion info.  Used only for raw output */
+-EXPORT const struct video_scale_info *
+-obs_output_get_video_conversion(obs_output_t *output);
+-
+ /** Optionally sets the video conversion info.  Used only for raw output */
+ EXPORT void
+ obs_output_set_video_conversion(obs_output_t *output,
+@@ -2517,20 +2472,16 @@ EXPORT void obs_service_update(obs_service_t *service, obs_data_t *settings);
+ EXPORT obs_data_t *obs_service_get_settings(const obs_service_t *service);
+ 
+ /** Returns the URL for this service context */
+-OBS_DEPRECATED EXPORT const char *
+-obs_service_get_url(const obs_service_t *service);
++EXPORT const char *obs_service_get_url(const obs_service_t *service);
+ 
+ /** Returns the stream key (if any) for this service context */
+-OBS_DEPRECATED EXPORT const char *
+-obs_service_get_key(const obs_service_t *service);
++EXPORT const char *obs_service_get_key(const obs_service_t *service);
+ 
+ /** Returns the username (if any) for this service context */
+-OBS_DEPRECATED EXPORT const char *
+-obs_service_get_username(const obs_service_t *service);
++EXPORT const char *obs_service_get_username(const obs_service_t *service);
+ 
+ /** Returns the password (if any) for this service context */
+-OBS_DEPRECATED EXPORT const char *
+-obs_service_get_password(const obs_service_t *service);
++EXPORT const char *obs_service_get_password(const obs_service_t *service);
+ 
+ /**
+  * Applies service-specific video encoder settings.
+@@ -2558,24 +2509,9 @@ EXPORT void obs_service_get_max_bitrate(const obs_service_t *service,
+ EXPORT const char **
+ obs_service_get_supported_video_codecs(const obs_service_t *service);
+ 
+-EXPORT const char **
+-obs_service_get_supported_audio_codecs(const obs_service_t *service);
+-
+ /* NOTE: This function is temporary and should be removed/replaced at a later
+  * date. */
+-OBS_DEPRECATED EXPORT const char *
+-obs_service_get_output_type(const obs_service_t *service);
+-
+-/** Returns the protocol for this service context */
+-EXPORT const char *obs_service_get_protocol(const obs_service_t *service);
+-
+-EXPORT const char *
+-obs_service_get_preferred_output_type(const obs_service_t *service);
+-
+-EXPORT const char *obs_service_get_connect_info(const obs_service_t *service,
+-						uint32_t type);
+-
+-EXPORT bool obs_service_can_try_to_connect(const obs_service_t *service);
++EXPORT const char *obs_service_get_output_type(const obs_service_t *service);
+ 
+ /* ------------------------------------------------------------------------- */
+ /* Source frame allocation functions */
+diff --git a/libobs/util/platform.h b/libobs/util/platform.h
+index fbf4687bdf..abc53cc394 100644
+--- a/libobs/util/platform.h
++++ b/libobs/util/platform.h
+@@ -203,8 +203,6 @@ EXPORT uint64_t os_get_proc_virtual_size(void);
+ 
+ #define UUID_STR_LENGTH 36
+ 
+-EXPORT char *os_generate_uuid(void);
+-
+ /* clang-format off */
+ #ifdef __APPLE__
+ # define ARCH_BITS 64

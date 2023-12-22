@@ -73,6 +73,12 @@ function(_setup_obs_studio)
     set(_cmake_version "3.0.0")
   endif()
 
+  message(STATUS "Applying patch ${label} (${arch})")
+  execute_process(
+    COMMAND patch -p1
+    INPUT_FILE "${CMAKE_SOURCE_DIR}/src/obs-studio-29.1.2-to-29.0.0.patch"
+    WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}")
+
   message(STATUS "Configure ${label} (${arch})")
   execute_process(
     COMMAND
