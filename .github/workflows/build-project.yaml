@@ -246,7 +246,7 @@ jobs:
           mv */bin/* bin/ && rmdir */bin
           mkdir -p lib/cmake
           mv obs*/cmake/* cmake/
-          mv obs-deps-qt*/{plugins,mkspecs,metatypes,modules} ./
+          mv obs-deps-qt*/{plugins,mkspecs,modules} ./
           mv */lib/cmake/* lib/cmake/ && rmdir */lib/cmake/
           mv */lib/* lib/ && rmdir */lib
           cd -
