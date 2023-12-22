@@ -1,33 +1,30 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "30.0.0",
+            "version": "29.0.0",
             "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
             "label": "OBS sources",
             "hashes": {
-                "macos": "c23dd463862b1a8f40365d84fd52105d7eafc3614fb3d470b695ba28a6e4da06",
-                "windows-x64": "2bfdadf5f46ba56276d588b77653a10b9e2b2e3c05d8029b27a25b8ada9ab474"
+                "macos": "05c5ae05a6085a792ce7fc131a92fe4a78adf90310d2d2da51a5e418720ab993",
+                "windows-x64": "58d54d6199195fc271818390e1e17edbc094e75edfad5b9e4c3bcac5cf2ab277"
             }
         },
         "prebuilt": {
-            "version": "2023-11-03",
+            "version": "2022-11-21",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built obs-deps",
             "hashes": {
-                "macos": "90c2fc069847ec2768dcc867c1c63b112c615ed845a907dc44acab7a97181974",
-                "windows-x64": "d0825a6fb65822c993a3059edfba70d72d2e632ef74893588cf12b1f0d329ce6"
+                "macos": "a1f27fbfe1452a9331d7d468aaa38e67b71d1a89a2f049e6061308d98ad3e630",
+                "windows-x64": "78b83cae60ff8f3f9c12b3178c27d03d3c0e64044f9ee080b6413303c38c7df4"
             }
         },
         "qt6": {
-            "version": "2023-11-03",
+            "version": "2022-11-21",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built Qt6",
             "hashes": {
-                "macos": "ba4a7152848da0053f63427a2a2cb0a199af3992997c0db08564df6f48c9db98",
-                "windows-x64": "bc57dedf76b47119a6dce0435a2f21b35b08c8f2948b1cb34a157320f77732d1"
-            },
-            "debugSymbols": {
-                "windows-x64": "fd8ecd1d8cd2ef049d9f4d7fb5c134f784836d6020758094855dfa98bd025036"
+                "macos": "873f7c9c9f7fcee740a79c075b32a505c932c816d928807fa16f3439c610fbfd",
+                "windows-x64": "cad882a8373a14ba5d44206785d1f7e50fb4dfac28b0f017a17b00e945d7ddda"
             }
         }
     },
