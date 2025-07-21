@@ -66,8 +66,13 @@ function Package {
         -recurse `
         -exclude "*.c"
 
+    Set-Content -path readme.txt -value "Generated at $(Date)"
+    Add-Content -path readme.txt -value "GITHUB_REPOSITORY: $env:GITHUB_REPOSITORY"
+    Add-Content -path readme.txt -value "GITHUB_REF: $env:GITHUB_REF"
+    Add-Content -path readme.txt -value "GITHUB_SHA: $env:GITHUB_SHA"
+
     $CompressArgs = @{
-        Path = "${ProjectRoot}/.deps/"
+        Path = "${ProjectRoot}/.deps/", "readme.txt"
         CompressionLevel = 'Optimal'
         DestinationPath = "${ProjectRoot}/release/${OutputName}.zip"
         Verbose = ($Env:CI -ne $null)
