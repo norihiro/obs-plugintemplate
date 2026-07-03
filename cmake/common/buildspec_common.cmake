@@ -125,10 +125,11 @@ function(_check_dependencies)
   foreach(dependency IN LISTS dependencies_list)
     string(JSON data GET ${dependency_data} ${dependency})
     string(JSON version GET ${data} version)
-    string(JSON hash GET ${data} hashes ${platform})
+    string(TOLOWER "${platform}" platform_lower)
+    string(JSON hash GET ${data} hashes ${platform_lower})
     string(JSON url GET ${data} baseUrl)
     string(JSON label GET ${data} label)
-    string(JSON revision ERROR_VARIABLE error GET ${data} revision ${platform})
+    string(JSON revision ERROR_VARIABLE error GET ${data} revision ${platform_lower})
 
     message(STATUS "Setting up ${label} (${arch})")
 
