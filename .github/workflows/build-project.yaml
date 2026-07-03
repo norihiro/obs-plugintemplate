@@ -252,6 +252,9 @@ jobs:
 
   windows-build:
     name: Build for Windows 🪟
+    strategy:
+      matrix:
+        arch: [x64, arm64]
     runs-on: windows-2022
     needs: check-event
     defaults:
@@ -281,15 +284,15 @@ jobs:
       - name: Build Plugin 🧱
         uses: ./.github/actions/build-plugin
         with:
-          target: x64
+          target: ${{ matrix.arch }}
           config: ${{ needs.check-event.outputs.config }}
 
       - name: Package build environment
         shell: bash
         run: |
-          mkdir -p obs-build-dependencies/plugin-deps-x64
-          cp -a .deps/* obs-build-dependencies/plugin-deps-x64/
-          cd obs-build-dependencies/plugin-deps-x64/
+          mkdir -p obs-build-dependencies/plugin-deps-${{ matrix.arch }}
+          cp -a .deps/* obs-build-dependencies/plugin-deps-${{ matrix.arch }}/
+          cd obs-build-dependencies/plugin-deps-${{ matrix.arch }}/
           rm -rf obs-studio-*/plugins
           mv */include/* ./include/ && rmdir */include/ || true
           mv */*/include/* ./include/ && rmdir */*/include/ || true
@@ -302,7 +305,7 @@ jobs:
           mv */lib/cmake/* lib/cmake/ && rmdir */lib/cmake/
           mv */lib/* lib/ && rmdir */lib
           cd -
-          tar czf obs-plugintemplate-${{ needs.check-event.outputs.commitHash }}-windows-x64.tar.gz \
+          tar czf obs-plugintemplate-${{ needs.check-event.outputs.commitHash }}-windows-${{ matrix.arch }}.tar.gz \
             --exclude '*.zip' \
             --exclude '*.pdb' \
             obs-build-dependencies
@@ -310,5 +313,5 @@ jobs:
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-${{ needs.check-event.outputs.commitHash }}
+          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-${{ matrix.arch }}-${{ needs.check-event.outputs.commitHash }}
           path: ${{ github.workspace }}/*.tar.gz
