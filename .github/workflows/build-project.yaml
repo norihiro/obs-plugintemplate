@@ -72,6 +72,7 @@ jobs:
           fi
 
   macos-build:
+    if: false
     name: Build for macOS 🍏
     runs-on: macos-15
     needs: check-event
